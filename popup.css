@@ -21,18 +21,30 @@ body {
 }
 
 .toolbar button {
-  padding: 3px 6px;
-  background-color: #24292f;
-  border: 1px solid rgba(27, 31, 36, 0.15);
+  padding: 4px 8px;
+  background-color: #32383f;
+  border: 1px solid rgba(240, 246, 252, 0.2);
   border-radius: 6px;
   font-size: 14px;
   font-weight: 500;
+  line-height: 1.4;
   cursor: pointer;
-  color: #24292f;
+  color: #f0f6fc; /* 어두운 툴바 위에서 읽히도록 밝은 전경색 */
+  transition: background-color 0.15s, border-color 0.15s;
 }
 
 .toolbar button:hover {
-  background-color: #24292f;
+  background-color: #444c56;
+  border-color: rgba(240, 246, 252, 0.4);
+}
+
+.toolbar button:active {
+  background-color: #22272e;
+}
+
+.toolbar button:focus-visible {
+  outline: 2px solid #58a6ff;
+  outline-offset: 1px;
 }
 
 .container {
@@ -136,4 +148,47 @@ body {
   color: #656d76;
   border-left: .25em solid #d0d7de;
   margin: 0;
+}
+
+/* 이미지: 원본이 커도 프리뷰 폭을 넘지 않도록 제한 */
+.markdown-body img {
+  max-width: 100%;
+  height: auto;
+  box-sizing: border-box;
+  background-color: #ffffff;
+}
+
+/* 표: 넓은 표는 페이지 대신 표 자체가 가로 스크롤되도록 래퍼를 둔다 */
+.markdown-body .table-wrapper {
+  max-width: 100%;
+  overflow-x: auto;
+  margin-bottom: 16px;
+}
+
+.markdown-body table {
+  border-collapse: collapse;
+  border-spacing: 0;
+  width: auto;
+  max-width: 100%;
+  font-size: 14px;
+}
+
+.markdown-body th,
+.markdown-body td {
+  padding: 6px 13px;
+  border: 1px solid #d0d7de;
+}
+
+.markdown-body th {
+  background-color: #f6f8fa;
+  font-weight: 600;
+}
+
+/* 짝수 행 배경 교차 */
+.markdown-body tbody tr:nth-child(2n) {
+  background-color: #f6f8fa;
+}
+
+.markdown-body table code {
+  white-space: nowrap;
 }
