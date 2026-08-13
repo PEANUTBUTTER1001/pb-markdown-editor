@@ -127,3 +127,11 @@ dist-electron/
 release/
 
 .idea
+# PB Markdown Editor - esbuild 번들 산출물 (npm start / build 시 자동 생성)
+assets/bundle.min.js
+
+# 로컬 작업 문서 및 검증 픽스처 (계획서, 명세서, 진행 현황)
+docs/
+
+# OMC 로컬 상태
+.omc/
