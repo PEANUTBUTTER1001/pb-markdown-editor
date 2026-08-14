@@ -1,12 +1,12 @@
 {
   "name": "pb-markdown-editor",
   "productName": "PB Markdown Editor",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "A simple Markdown viewer and editor.",
   "main": "index.js",
   "scripts": {
     "prebuild-icon": "node make-icon.js",
-    "build:js": "esbuild popup.js --bundle --minify --outfile=assets/bundle.min.js --platform=node --external:electron",
+    "build:js": "esbuild popup.js --bundle --minify --outfile=assets/bundle.min.js --platform=browser",
     "prestart": "npm run prebuild-icon && npm run build:js",
     "start": "electron .",
     "build:portable": "npm run prebuild-icon && npm run build:js && electron-builder --win portable && npx rimraf dist/win-unpacked dist/*.yaml dist/*.yml dist/.icon-ico",
@@ -22,7 +22,16 @@
     "png-to-ico": "^3.0.2"
   },
   "build": {
-    "appId": "io.github.peanutbutter1001.markdownviewer",
+    "appId": "io.github.peanutbutter1001.pbmarkdowneditor",
+    "files": [
+      "index.js",
+      "preload.js",
+      "popup.html",
+      "popup.css",
+      "lib/**/*",
+      "assets/bundle.min.js",
+      "assets/icon.ico"
+    ],
     "win": {
       "target": [
         "portable",
