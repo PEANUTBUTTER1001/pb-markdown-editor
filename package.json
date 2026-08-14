@@ -1,7 +1,7 @@
 {
   "name": "pb-markdown-editor",
   "productName": "PB Markdown Editor",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "A simple Markdown viewer and editor.",
   "main": "index.js",
   "scripts": {
