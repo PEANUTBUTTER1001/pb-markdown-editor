@@ -30,7 +30,8 @@
       "popup.css",
       "lib/**/*",
       "assets/bundle.min.js",
-      "assets/icon.ico"
+      "assets/icon.ico",
+      "assets/buttonicons/**/*"
     ],
     "win": {
       "target": [

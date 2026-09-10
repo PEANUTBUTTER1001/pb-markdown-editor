@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" width="96" height="96">
+            <!-- Solid Disk Body (System Blue #007aff) -->
+            <path d="M22 18 H64 L74 28 V72 C74 75.3 71.3 78 68 78 H28 C24.7 78 22 75.3 22 72 Z" fill="#007aff"/>
+            <!-- Top Shutter Cutout (Pure White #ffffff) -->
+            <rect x="34" y="18" width="28" height="22" rx="4" fill="#ffffff"/>
+            <rect x="42" y="22" width="5" height="10" rx="2" fill="#007aff"/>
+            <!-- Bottom Core Bay Cutout (Pure White #ffffff) -->
+            <rect x="32" y="48" width="32" height="30" rx="4" fill="#ffffff"/>
+            <!-- Data Bars (System Blue & Cyan) -->
+            <rect x="38" y="55" width="20" height="4" rx="2" fill="#007aff"/>
+            <rect x="38" y="63" width="13" height="4" rx="2" fill="#32ade6"/>
+          </svg>

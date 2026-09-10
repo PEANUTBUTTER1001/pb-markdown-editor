@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" width="96" height="96">
+            <!-- Left Solid Card: TextView (System Indigo #5856d6) -->
+            <rect x="16" y="20" width="30" height="56" rx="8" fill="#5856d6"/>
+            <!-- Left Negative Space Text Lines (Pure White #ffffff) -->
+            <rect x="22" y="34" width="18" height="4" rx="2" fill="#ffffff"/>
+            <rect x="22" y="44" width="18" height="4" rx="2" fill="#ffffff"/>
+            <rect x="22" y="54" width="11" height="4" rx="2" fill="#ffffff"/>
+            <rect x="36" y="54" width="3" height="4" rx="1.5" fill="#32ade6"/>
+            <!-- Right Solid Card: Preview (System Orange #ff9500) -->
+            <rect x="50" y="20" width="30" height="56" rx="8" fill="#ff9500"/>
+            <!-- Right Negative Space Eye Silhouette -->
+            <path d="M54 48 C57 41 61 38 65 38 C69 38 73 41 76 48 C73 55 69 58 65 58 C61 58 57 55 54 48 Z" fill="#ffffff"/>
+            <circle cx="65" cy="48" r="3.5" fill="#1c1c1e"/>
+            <circle cx="66" cy="47" r="1" fill="#ffffff"/>
+          </svg>

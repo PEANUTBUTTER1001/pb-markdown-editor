@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" width="96" height="96">
+            <!-- Solid Document Sheet (System Indigo #5856d6) -->
+            <path d="M24 16 H60 L72 28 V76 C72 78.8 69.8 81 67 81 H29 C26.2 81 24 78.8 24 76 Z" fill="#5856d6"/>
+            <!-- Folded Corner Accent (System Purple #af52de) -->
+            <path d="M60 16 V26 C60 27.1 60.9 28 62 28 H72 Z" fill="#af52de"/>
+            <!-- Negative Space Content Lines (Pure White #ffffff) -->
+            <rect x="34" y="38" width="28" height="5" rx="2.5" fill="#ffffff"/>
+            <rect x="34" y="48" width="28" height="5" rx="2.5" fill="#ffffff"/>
+            <rect x="34" y="58" width="17" height="5" rx="2.5" fill="#ffffff"/>
+            <!-- Text Cursor Accent (System Orange #ff9500) -->
+            <rect x="55" y="57" width="4" height="7" rx="2" fill="#ff9500"/>
+          </svg>
