@@ -23,6 +23,66 @@ let isClosingConfirmed = false;
 let isRendererReady = false;
 let pendingOpenPath = null;
 
+// 외부 파일 감시(fs.watch) 및 3초 디바운스 관리
+const activeWatchers = new Map(); // filePath -> { watcher, timer }
+const selfSavedTimestamps = new Map(); // filePath -> timestamp
+const FILE_DEBOUNCE_MS = 3000; // 사용자 요구사항: 수정이 멈춘 뒤 3초 대기
+
+function startWatchingFile(filePath) {
+  if (!isMarkdownPath(filePath) || !fs.existsSync(filePath)) return;
+  if (activeWatchers.has(filePath)) return;
+
+  try {
+    const watcher = fs.watch(filePath, () => {
+      // 자체 저장(file:save) 직후 1초 내 발생한 이벤트는 무시
+      const lastSaved = selfSavedTimestamps.get(filePath) || 0;
+      if (Date.now() - lastSaved < 1000) {
+        return;
+      }
+
+      const entry = activeWatchers.get(filePath);
+      if (!entry) return;
+
+      if (entry.timer) {
+        clearTimeout(entry.timer);
+      }
+
+      entry.timer = setTimeout(() => {
+        entry.timer = null;
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send('file:changed', filePath);
+        }
+      }, FILE_DEBOUNCE_MS);
+    });
+
+    watcher.on('error', (err) => {
+      console.error('File watcher error:', filePath, err);
+      stopWatchingFile(filePath);
+    });
+
+    activeWatchers.set(filePath, { watcher, timer: null });
+  } catch (err) {
+    console.error('Failed to start file watcher:', filePath, err);
+  }
+}
+
+function stopWatchingFile(filePath) {
+  const entry = activeWatchers.get(filePath);
+  if (entry) {
+    if (entry.timer) clearTimeout(entry.timer);
+    try {
+      entry.watcher.close();
+    } catch (_) {}
+    activeWatchers.delete(filePath);
+  }
+}
+
+function stopAllWatchers() {
+  for (const filePath of Array.from(activeWatchers.keys())) {
+    stopWatchingFile(filePath);
+  }
+}
+
 function isMarkdownPath(filePath) {
   return (
     typeof filePath === 'string' &&
@@ -146,6 +206,7 @@ function createWindow () {
   });
 
   mainWindow.on('closed', () => {
+    stopAllWatchers();
     mainWindow = null;
     isRendererReady = false;
   });
@@ -164,10 +225,8 @@ if (!app.requestSingleInstanceLock()) {
     const filePath = extractMarkdownPath(argv);
     if (!filePath) return;
 
-    // 편집 중인 내용이 있으면 먼저 확인한다.
-    if (await confirmDiscardChanges()) {
-      openFileInRenderer(filePath);
-    }
+    // 탭 시스템 지원: 기존 문서를 닫지 않고 새 탭으로 바로 전달
+    openFileInRenderer(filePath);
   });
 
   app.whenReady().then(() => {
@@ -176,7 +235,27 @@ if (!app.requestSingleInstanceLock()) {
       if (!isMarkdownPath(filePath)) {
         throw new Error('InvalidFileType');
       }
-      return readMarkdownFile(filePath);
+      const content = readMarkdownFile(filePath);
+      // 읽은 파일은 자동으로 감시 시작
+      startWatchingFile(filePath);
+      return content;
+    });
+
+    // 파일 감시 시작/중지 핸들러
+    ipcMain.handle('file:watch', async (_event, filePath) => {
+      if (filePath && isMarkdownPath(filePath)) {
+        startWatchingFile(filePath);
+        return true;
+      }
+      return false;
+    });
+
+    ipcMain.handle('file:unwatch', async (_event, filePath) => {
+      if (filePath) {
+        stopWatchingFile(filePath);
+        return true;
+      }
+      return false;
     });
 
     // 파일 저장. filePath 가 없으면 저장 대화상자를 띄운다.
@@ -200,6 +279,8 @@ if (!app.requestSingleInstanceLock()) {
       }
 
       fs.writeFileSync(targetPath, content, 'utf-8');
+      selfSavedTimestamps.set(targetPath, Date.now());
+      startWatchingFile(targetPath);
       return { saved: true, filePath: targetPath };
     });
 

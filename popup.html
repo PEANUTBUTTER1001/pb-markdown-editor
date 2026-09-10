@@ -8,18 +8,54 @@
 </head>
 <body>
   <div class="toolbar">
-    <button id="btn-save" title="저장 (Ctrl+S)">💾</button>
-    <button id="btn-save-as" title="다른 이름으로 저장 (Ctrl+Shift+S)">📤</button>
-    <button id="btn-toggle-layout" title="상하/좌우 레이아웃 전환">🔄</button>
+    <div class="toolbar-left">
+      <button id="btn-save" title="저장 (Ctrl+S)">💾</button>
+      <button id="btn-save-as" title="다른 이름으로 저장 (Ctrl+Shift+S)">📤</button>
+      <button id="btn-toggle-layout" title="상하/좌우 레이아웃 전환">🔄</button>
+      
+      <div class="toolbar-separator"></div>
+
+      <div class="view-mode-group">
+        <button id="btn-view-editor" class="view-mode-btn" title="에디터 전용 보기">에디터</button>
+        <button id="btn-view-split" class="view-mode-btn active" title="에디터, 프리뷰 분할 보기">에디터, 프리뷰</button>
+        <button id="btn-view-preview" class="view-mode-btn" title="프리뷰 전용 보기">프리뷰</button>
+      </div>
+    </div>
+
+    <div class="toolbar-right">
+      <label class="theme-switch-container" for="themeSwitch" title="다크 / 라이트 모드 전환">
+        <span class="theme-icon-label" id="themeDarkIcon">🌙</span>
+        <span class="theme-switch">
+          <input type="checkbox" id="themeSwitch" onchange="onThemeSwitchChange(event)">
+          <span class="slider"></span>
+        </span>
+        <span class="theme-icon-label active" id="themeLightIcon">☀️</span>
+        <span class="theme-text" id="themeModeText">라이트 모드</span>
+      </label>
+    </div>
   </div>
+
+  <div class="tab-bar-container" id="tab-bar-container">
+    <div class="tab-bar" id="tab-bar"></div>
+    <button class="btn-new-tab" id="btn-new-tab" title="새 탭 (Ctrl+T)">+</button>
+  </div>
+
   <div class="container" id="main-container">
     <div class="editor-pane" id="editor-pane">
-      <textarea id="markdown-input" placeholder="여기에 마크다운 텍스트를 입력하세요."></textarea>
+      <div class="editor-wrapper">
+        <div class="line-numbers" id="line-numbers"></div>
+        <textarea id="markdown-input" placeholder="여기에 마크다운 텍스트를 입력하세요."></textarea>
+      </div>
     </div>
     <div class="splitter" id="splitter"></div>
     <div class="preview-pane" id="preview-pane">
       <div id="markdown-output" class="markdown-body"></div>
     </div>
+  </div>
+
+  <div class="status-bar" id="status-bar">
+    <span id="status-counts">글자 수: 0자 (공백 제외: 0자) | 줄 수: 1줄</span>
+    <span id="status-message"></span>
   </div>
 
   <script src="lib/marked.min.js"></script>

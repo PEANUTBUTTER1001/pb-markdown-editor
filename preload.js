@@ -69,6 +69,28 @@ contextBridge.exposeInMainWorld('pbEditor', {
   confirmDiscard: () => ipcRenderer.invoke('dialog:confirm-discard'),
 
   /**
+   * 파일 감시를 요청한다.
+   * @param {string} filePath
+   * @returns {Promise<boolean>}
+   */
+  watchFile: (filePath) => ipcRenderer.invoke('file:watch', filePath),
+
+  /**
+   * 파일 감시를 해제한다.
+   * @param {string} filePath
+   * @returns {Promise<boolean>}
+   */
+  unwatchFile: (filePath) => ipcRenderer.invoke('file:unwatch', filePath),
+
+  /**
+   * 외부 파일 변경 이벤트를 구독한다. (3초 디바운스 적용됨)
+   * @param {(filePath: string) => void} callback
+   */
+  onFileChanged: (callback) => {
+    ipcRenderer.on('file:changed', (_event, filePath) => callback(filePath));
+  },
+
+  /**
    * 렌더러 초기화 완료를 알린다. 이 신호 전에 도착한 열기 요청은 메인이 보관했다가 전달한다.
    */
   notifyReady: () => ipcRenderer.send('renderer:ready')
