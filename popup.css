@@ -96,16 +96,22 @@ body {
 }
 
 .toolbar button {
-  padding: 4px 8px;
+  padding: 1px 2px;
+  min-width: 28px;
+  height: 28px;
+  box-sizing: border-box;
   background-color: var(--toolbar-btn-bg);
   border: 1px solid var(--toolbar-btn-border);
   border-radius: 6px;
   font-size: 14px;
   font-weight: 500;
-  line-height: 1.4;
+  line-height: 1;
   cursor: pointer;
   color: var(--toolbar-btn-color);
   transition: background-color 0.15s, border-color 0.15s, opacity 0.15s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .toolbar button:hover:not(:disabled) {
@@ -118,6 +124,14 @@ body {
   cursor: not-allowed;
 }
 
+.toolbar-icon {
+  width: 24px;
+  height: 24px;
+  display: block;
+  object-fit: contain;
+  pointer-events: none;
+}
+
 .toolbar-separator {
   width: 1px;
   height: 18px;
@@ -128,10 +142,12 @@ body {
 /* 뷰 모드 세그먼트 버튼 */
 .view-mode-group {
   display: inline-flex;
+  align-items: center;
   background-color: rgba(0, 0, 0, 0.3);
   border-radius: 6px;
-  padding: 2px;
+  padding: 1px;
   border: 1px solid rgba(240, 246, 252, 0.15);
+  gap: 2px;
 }
 
 .view-mode-btn {
@@ -139,20 +155,40 @@ body {
   border: none !important;
   border-radius: 4px !important;
   color: #8b949e !important;
-  font-size: 12px !important;
-  padding: 4px 10px !important;
+  padding: 1px 2px !important;
+  min-width: 24px !important;
+  height: 24px !important;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   transition: background-color 0.15s, color 0.15s;
+}
+
+.view-mode-btn .toolbar-icon {
+  width: 20px;
+  height: 20px;
+  opacity: 0.65;
+  transition: opacity 0.15s, transform 0.15s;
 }
 
 .view-mode-btn:hover {
   color: #f0f6fc !important;
 }
 
+.view-mode-btn:hover .toolbar-icon {
+  opacity: 0.9;
+}
+
 .view-mode-btn.active {
   background-color: var(--toolbar-btn-hover) !important;
   color: #ffffff !important;
   font-weight: 600 !important;
+}
+
+.view-mode-btn.active .toolbar-icon {
+  opacity: 1;
+  transform: scale(1.05);
 }
 
 /* 테마 스위치 (사용자 제공 디자인 반영) */
