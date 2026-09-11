@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" width="96" height="96">
+            <!-- Solid Eye Silhouette (System Orange #ff9500) -->
+            <path d="M16 48 C24 31 37 23 48 23 C59 23 72 31 80 48 C72 65 59 73 48 73 C37 73 24 65 16 48 Z" fill="#ff9500"/>
+            <!-- Negative Space Sclera/Iris (Pure White #ffffff) -->
+            <circle cx="48" cy="48" r="16" fill="#ffffff"/>
+            <!-- Optical Pupil (System Slate #1c1c1e) -->
+            <circle cx="48" cy="48" r="9.5" fill="#1c1c1e"/>
+            <!-- Specular Light Reflection (Pure White #ffffff) -->
+            <circle cx="51.5" cy="44.5" r="3" fill="#ffffff"/>
+            <!-- Upper Vision Ray Accent (System Amber #ffcc00) -->
+            <path d="M38 27 C41 25.5 44.5 25 48 25 C51.5 25 55 25.5 58 27" fill="none" stroke="#ffcc00" stroke-width="3" stroke-linecap="round"/>
+          </svg>
