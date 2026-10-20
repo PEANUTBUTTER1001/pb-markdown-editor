@@ -88,8 +88,8 @@ class SplitterManager {
       }
     }
 
-    this.editorPane.style.flex = `0 0 ${editorPercentage}%`;
-    this.previewPane.style.flex = `0 0 ${previewPercentage}%`;
+    this.editorPane.style.flex = `${editorPercentage} 1 0`;
+    this.previewPane.style.flex = `${previewPercentage} 1 0`;
 
     // Update tooltip
     const p1 = Math.round(editorPercentage);

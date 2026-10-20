@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ko">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -9,6 +9,7 @@
 <body>
   <div class="toolbar">
     <div class="toolbar-left">
+      <button id="btn-open" title="문서 열기" aria-label="문서 열기">열기</button>
       <button id="btn-save" title="저장 (Ctrl+S)"><img src="assets/buttonicons/icon_save.svg" alt="저장" class="toolbar-icon"></button>
       <button id="btn-save-as" title="다른 이름으로 저장 (Ctrl+Shift+S)"><img src="assets/buttonicons/icon_save_as.svg" alt="다른 이름으로 저장" class="toolbar-icon"></button>
       <button id="btn-toggle-layout" title="상하/좌우 레이아웃 전환"><img src="assets/buttonicons/icon_sync.svg" alt="상하/좌우 레이아웃 전환" class="toolbar-icon"></button>
@@ -20,6 +21,10 @@
         <button id="btn-view-split" class="view-mode-btn active" title="에디터, 프리뷰 분할 보기"><img src="assets/buttonicons/icon_textview_preview.svg" alt="에디터, 프리뷰 분할 보기" class="toolbar-icon"></button>
         <button id="btn-view-preview" class="view-mode-btn" title="프리뷰 전용 보기"><img src="assets/buttonicons/icon_preview.svg" alt="프리뷰 전용 보기" class="toolbar-icon"></button>
       </div>
+      <button id="btn-format" title="JSON 원문 값을 보존하며 정렬" hidden>정렬</button>
+      <button id="btn-undo" title="실행 취소 (Ctrl+Z)" aria-label="실행 취소">↶</button>
+      <button id="btn-redo" title="다시 실행" aria-label="다시 실행">↷</button>
+      <span id="document-kind" class="document-kind">Markdown</span>
     </div>
 
     <div class="toolbar-right">
@@ -36,26 +41,36 @@
   </div>
 
   <div class="tab-bar-container" id="tab-bar-container">
-    <div class="tab-bar" id="tab-bar"></div>
-    <button class="btn-new-tab" id="btn-new-tab" title="새 탭 (Ctrl+T)">+</button>
+    <div class="tab-bar" id="tab-bar" aria-label="열린 문서"></div>
+    <button class="btn-new-tab" id="btn-new-tab" title="새 문서 메뉴" aria-label="새 문서 메뉴">+</button>
   </div>
+  <div id="tab-menu" class="document-menu" hidden></div>
 
   <div class="container" id="main-container">
     <div class="editor-pane" id="editor-pane">
-      <div class="editor-wrapper">
-        <div class="line-numbers" id="line-numbers"></div>
-        <textarea id="markdown-input" placeholder="여기에 마크다운 텍스트를 입력하세요."></textarea>
-      </div>
+      <div class="pane-caption"><span id="source-caption">Markdown</span><button id="btn-find">찾기</button></div>
+      <div id="code-search-row" class="code-search-row" hidden><input id="code-search" aria-label="원본에서 찾기" placeholder="원본에서 찾기"><button id="code-search-next">다음</button><button id="code-search-close" aria-label="검색 닫기">×</button></div>
+      <div id="source-editor"></div>
     </div>
     <div class="splitter" id="splitter"></div>
     <div class="preview-pane" id="preview-pane">
+      <div class="pane-caption"><span id="preview-caption">미리보기</span></div>
       <div id="markdown-output" class="markdown-body"></div>
+      <section id="json-panel" hidden>
+        <div class="json-search-row"><input id="json-search" aria-label="구조의 키 또는 값 검색" placeholder="키 또는 값 검색"><button id="json-search-clear" aria-label="구조 검색 지우기">×</button><span id="json-search-count"></span></div>
+        <div class="json-actions"><button id="json-expand">모두 펼치기</button><button id="json-collapse">접기</button></div>
+        <div id="json-notice" class="json-notice" role="status" hidden></div>
+        <div id="json-tree-scroll"><div id="json-column-head" aria-hidden="true"><span>키</span><span>값</span><span>타입</span></div><div id="json-tree" role="tree" aria-label="JSON 구조" tabindex="0"></div></div>
+        <div class="json-inspector"><div><span>선택 경로</span><span id="json-path"></span><span id="json-selected-type"></span></div><div><button id="json-copy-path">경로 복사</button><button id="json-copy-value">값 복사</button><button id="json-jump">코드로 이동</button></div></div>
+      </section>
     </div>
   </div>
 
   <div class="status-bar" id="status-bar">
     <span id="status-counts">글자 수: 0자 (공백 제외: 0자) | 줄 수: 1줄</span>
     <span id="status-message"></span>
+    <span id="status-validation"></span>
+    <span id="status-cursor"></span>
   </div>
 
   <script src="lib/marked.min.js"></script>

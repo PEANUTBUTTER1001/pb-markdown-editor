@@ -1,350 +1,202 @@
 const MarkdownService = require('./services/MarkdownService');
-const FileService = require('./services/FileService');
-const ScrollManager = require('./ui/ScrollManager');
-const SplitterManager = require('./ui/SplitterManager');
+const JsonService = require('./services/JsonService');
+const SourceEditor = require('./ui/SourceEditor');
+const JsonTreeView = require('./ui/JsonTreeView');
+const TabManager = require('./ui/TabManager');
 const LayoutManager = require('./ui/LayoutManager');
 const ThemeManager = require('./ui/ThemeManager');
-const EditorMetricsManager = require('./ui/EditorMetricsManager');
-const TabManager = require('./ui/TabManager');
+const SplitterManager = require('./ui/SplitterManager');
+const $ = id => document.getElementById(id);
 
 class App {
   constructor() {
-    // Services
-    this.markdownService = new MarkdownService();
-    this.fileService = new FileService();
-
-    // Document state
-    this.currentFilePath = null;
-    this.isDirty = false;
-    this._statusTimer = null;
-
-    // DOM Elements
-    this.inputArea = document.getElementById('markdown-input');
-    this.outputArea = document.getElementById('markdown-output');
-    this.container = document.getElementById('main-container');
-    this.editorPane = document.getElementById('editor-pane');
-    this.previewPane = document.getElementById('preview-pane');
-    this.splitter = document.getElementById('splitter');
-    this.btnToggle = document.getElementById('btn-toggle-layout');
-    this.btnSave = document.getElementById('btn-save');
-    this.btnSaveAs = document.getElementById('btn-save-as');
-    this.tabBarEl = document.getElementById('tab-bar');
-    this.btnNewTab = document.getElementById('btn-new-tab');
-    this.lineNumbersEl = document.getElementById('line-numbers');
-    this.statusCountsEl = document.getElementById('status-counts');
-    this.statusMessageEl = document.getElementById('status-message');
-
-    // UI Managers
-    this.themeManager = new ThemeManager();
-    this.scrollManager = new ScrollManager(this.inputArea, this.previewPane);
-    this.splitterManager = new SplitterManager(this.container, this.splitter, this.editorPane, this.previewPane);
-
-    const viewButtons = {
-      btnEditor: document.getElementById('btn-view-editor'),
-      btnSplit: document.getElementById('btn-view-split'),
-      btnPreview: document.getElementById('btn-view-preview')
-    };
-    this.layoutManager = new LayoutManager(
-      this.container,
-      this.editorPane,
-      this.previewPane,
-      this.btnToggle,
-      viewButtons
-    );
-
-    this.editorMetrics = new EditorMetricsManager(
-      this.inputArea,
-      this.lineNumbersEl,
-      this.statusCountsEl
-    );
-
-    this.tabManager = new TabManager(this.tabBarEl, this.btnNewTab, {
-      onActivate: (tab) => this.handleTabActivate(tab),
-      onSaveState: (tab) => this.handleTabSaveState(tab),
-      onConfirmDiscard: (tab) => this.handleTabConfirmDiscard(tab),
-      onExternalReload: (tab) => this.handleTabExternalReload(tab),
-      onPromptReload: (tab, newContent) => this.handleTabPromptReload(tab, newContent)
-    });
+    this.tabs = []; this.activeId = null; this.locked = false; this.api = window.pbEditor;
+    this.markdown = new MarkdownService(); this.theme = new ThemeManager();
+    this.layout = new LayoutManager($('main-container'), $('editor-pane'), $('preview-pane'), $('btn-toggle-layout'), { btnEditor: $('btn-view-editor'), btnSplit: $('btn-view-split'), btnPreview: $('btn-view-preview') });
+    this.splitter = new SplitterManager($('main-container'), $('splitter'), $('editor-pane'), $('preview-pane'));
+    this.source = new SourceEditor($('source-editor'), text => this.edit(text), () => this.metrics());
+    this.tree = new JsonTreeView(() => {}, node => this.jump(node), message => this.notice(message));
+    this.tabUI = new TabManager(this);
   }
-
-  init() {
-    this.themeManager.init();
-    this.scrollManager.init();
-    this.splitterManager.init();
-    this.layoutManager.init();
-    this.editorMetrics.init();
-    this.tabManager.init();
-    this.bindEvents();
-
-    // Initial render
-    this.updatePreview();
-    this.syncDocumentState();
-
-    // 준비 완료를 메인에 알린다. (이전 도착한 파일 열기 큐 전달)
-    window.pbEditor.notifyReady();
+  current() { return this.tabs.find(t => t.id === this.activeId); }
+  makeTab(doc) {
+    const state = doc.snapshot || {};
+    const tab = { ...doc, scrollTop: state.scrollTop || 0, scrollLeft: state.scrollLeft || 0, previewScrollTop: state.previewScrollTop || 0,
+      expanded: new Set(state.expanded || ['r']), selected: state.selected || 'r', query: state.query || '', treeScroll: state.treeScroll || 0, parsed: null, error: null, analysisPending: false, locked: false };
+    if (state.lastGoodText != null && tab.type === 'json') { const previous = JsonService.analyze(state.lastGoodText); if (!previous.error) tab.parsed = previous; }
+    this.analyze(tab); return tab;
   }
-
-  updatePreview() {
-    const html = this.markdownService.render(this.inputArea.value || '');
-    this.outputArea.innerHTML = html;
-  }
-
-  /** 현재 문서 상태를 메인 프로세스에 전달한다. (창 제목 / 종료 확인) */
-  syncDocumentState() {
-    const activeTab = this.tabManager.getActiveTab();
-    const hasDirty = this.tabManager.hasAnyDirtyTabs();
-    window.pbEditor.setDocumentState({
-      filePath: activeTab ? activeTab.filePath : this.currentFilePath,
-      isDirty: hasDirty
-    });
-  }
-
-  setDirty(isDirty) {
-    const activeTab = this.tabManager.getActiveTab();
-    if (activeTab) {
-      activeTab.isDirty = isDirty;
-      this.tabManager.render();
+  async init() {
+    this.theme.init(); this.layout.init(); this.splitter.init(); this.tabUI.init(); this.bind();
+    const initial = await this.api.bootstrap(); this.windowId = initial.windowId;
+    if (initial.layout) {
+      this.theme.setTheme(initial.layout.theme, false); this.layout.layoutIndex = initial.layout.layoutIndex || 0;
+      this.layout.applyLayout(); this.layout.setViewMode(initial.layout.viewMode || 'split');
+      $('editor-pane').style.flex = initial.layout.editorFlex || '1'; $('preview-pane').style.flex = initial.layout.previewFlex || '1';
     }
-    this.isDirty = isDirty;
-    this.syncDocumentState();
+    for (const doc of initial.documents) this.tabs.push(this.makeTab(doc));
+    if (!this.tabs.length) this.tabs.push(this.makeTab(await this.api.createDocument('md')));
+    this.activate(this.tabs[0].id); this.api.notifyReady();
   }
-
-  handleTabActivate(tab) {
-    this.inputArea.value = tab.content || '';
-    this.currentFilePath = tab.filePath;
-    this.isDirty = tab.isDirty;
-
-    this.markdownService.setCurrentFilePath(tab.filePath);
-    this.updatePreview();
-    this.editorMetrics.update();
-    this.syncDocumentState();
-
-    // 스크롤 복원
-    this.inputArea.scrollTop = tab.scrollTop || 0;
-    this.previewPane.scrollTop = tab.previewScrollTop || 0;
-    if (this.lineNumbersEl) {
-      this.lineNumbersEl.scrollTop = this.inputArea.scrollTop;
+  layoutState() { return { theme: this.theme.getTheme(), layoutIndex: this.layout.layoutIndex, viewMode: this.layout.viewMode, editorFlex: $('editor-pane').style.flex, previewFlex: $('preview-pane').style.flex }; }
+  capture(tab) { if (tab.id === this.activeId) { this.source.capture(tab); tab.previewScrollTop = $('preview-pane').scrollTop; } }
+  snapshot(tab, withHistory = false) {
+    this.capture(tab);
+    return { content: tab.content, scrollTop: tab.scrollTop, scrollLeft: tab.scrollLeft, previewScrollTop: tab.previewScrollTop,
+      expanded: [...tab.expanded], selected: tab.selected, query: tab.query, treeScroll: tab.treeScroll,
+      lastGoodText: tab.parsed?.text ?? null, editor: withHistory ? this.source.serialize(tab) : null, layout: this.layoutState() };
+  }
+  async sync(tab) { if (!this.tabs.includes(tab) || tab.locked) return; clearTimeout(tab.syncTimer); tab.syncTimer = null; await this.api.syncDocument({ id: tab.id, snapshot: this.snapshot(tab), activeId: this.activeId }); }
+  async flush() { for (const tab of this.tabs) if (!tab.locked) await this.sync(tab); }
+  async newTab(type) {
+    if (this.locked) return; const tab = this.makeTab(await this.api.createDocument(type)); this.tabs.push(tab); this.activate(tab.id); this.source.view.focus();
+  }
+  activate(id) {
+    const tab = this.tabs.find(t => t.id === id); if (!tab) return;
+    const previous = this.current(); if (previous) this.capture(previous);
+    this.activeId = id; this.source.load(tab); this.render();
+    this.sync(tab).catch(error => this.error(error));
+  }
+  analyze(tab) {
+    tab.analysisPending = false; if (tab.type !== 'json') return;
+    const result = JsonService.analyze(tab.content); tab.error = result.error || null; tab.limited = !!result.limited;
+    if (!result.error) { tab.parsed = result; if (!result.nodes.some(n => n.id === tab.selected)) tab.selected = 'r'; }
+  }
+  edit(text) {
+    const tab = this.current(); if (!tab || tab.locked) return;
+    tab.content = text; this.source.capture(tab); this.tabUI.render(); this.metrics();
+    clearTimeout(tab.parseTimer); clearTimeout(tab.syncTimer);
+    if (tab.type === 'json') { tab.analysisPending = true; this.tree.setDocument(tab); $('btn-format').disabled = true; }
+    else this.renderMarkdown(tab);
+    tab.parseTimer = setTimeout(() => { this.analyze(tab); if (this.current() === tab) this.render(); }, 250);
+    tab.syncTimer = setTimeout(() => this.sync(tab).catch(error => this.error(error)), 100);
+  }
+  renderMarkdown(tab) { this.markdown.setCurrentFilePath(tab.filePath); $('markdown-output').innerHTML = this.markdown.render(tab.content); }
+  render() {
+    const tab = this.current(); if (!tab) return; const isJson = tab.type === 'json';
+    document.body.classList.toggle('json-document', isJson); $('json-panel').hidden = !isJson; $('markdown-output').hidden = isJson;
+    $('document-kind').textContent = isJson ? 'JSON' : 'Markdown'; $('source-caption').textContent = isJson ? '원본 코드' : 'Markdown';
+    $('preview-caption').textContent = isJson ? '구조 탐색 · 읽기 전용' : '미리보기';
+    $('btn-format').hidden = !isJson; $('btn-format').disabled = !!tab.error || tab.analysisPending || tab.locked;
+    $('btn-view-preview').title = isJson ? '구조 전용 보기' : '프리뷰 전용 보기';
+    $('btn-save').disabled = tab.locked || !!tab.saving; $('btn-save-as').disabled = tab.locked || !!tab.saving;
+    this.tabUI.render(); if (isJson) this.tree.setDocument(tab); else this.renderMarkdown(tab);
+    $('preview-pane').scrollTop = tab.previewScrollTop || 0; this.metrics();
+  }
+  metrics() {
+    const tab = this.current(); if (!tab) return;
+    const text = tab.content, head = this.source.view.state.selection.main.head, line = this.source.view.state.doc.lineAt(head);
+    $('status-counts').textContent = `글자 수: ${text.length.toLocaleString()}자 (공백 제외: ${text.replace(/\s/g, '').length.toLocaleString()}자) | 줄 수: ${this.source.view.state.doc.lines}줄`;
+    $('status-cursor').textContent = `행 ${line.number}, 열 ${head - line.from + 1}`;
+    $('status-validation').textContent = tab.type === 'md' ? '' : tab.analysisPending ? '분석 중' : tab.limited ? '구조 제한' : tab.error ? 'JSON 오류' : 'JSON 정상';
+    $('status-validation').className = tab.error ? 'invalid' : 'valid';
+  }
+  jump(node) { const tab = this.current(); if (!tab || !this.tree.fresh()) return; if (this.layout.viewMode === 'preview') this.layout.setViewMode('split'); this.source.select(node.start, node.end); }
+  notice(message) { $('status-message').textContent = message; clearTimeout(this.noticeTimer); this.noticeTimer = setTimeout(() => { $('status-message').textContent = ''; }, 4500); }
+  error(error) { this.notice(String(error.message || error)); }
+  async save(tab = this.current(), forceDialog = false) {
+    if (!tab || tab.locked || tab.saving) return false;
+    await this.sync(tab); const content = tab.content; tab.saving = true; this.render();
+    try {
+      const result = await this.api.saveDocument({ id: tab.id, content, forceDialog });
+      if (!result.saved) return false;
+      tab.saved = result.savedContent; tab.filePath = result.filePath; this.render(); this.notice('저장되었습니다.'); return true;
+    } catch (error) { this.error(error); return false; }
+    finally { tab.saving = false; this.render(); }
+  }
+  async close(id) {
+    const tab = this.tabs.find(t => t.id === id); if (!tab || tab.locked || tab.saving || this.locked) return;
+    this.capture(tab); this.lockTab(tab, true);
+    try { await this.api.syncDocument({ id: tab.id, snapshot: this.snapshot(tab), activeId: this.activeId }); if (await this.api.closeDocument(id)) await this.remove(id); }
+    catch (error) { this.error(error); } finally { if (this.tabs.includes(tab)) this.lockTab(tab, false); }
+  }
+  lockTab(tab, locked) { tab.locked = locked; if (!locked && tab.analysisPending) this.analyze(tab); if (tab.id === this.activeId) this.source.lock(locked); this.tabUI.render(); if (tab.id === this.activeId) this.render(); }
+  async remove(id, placeholder = true) {
+    const at = this.tabs.findIndex(t => t.id === id); if (at < 0) return;
+    const tab = this.tabs[at]; clearTimeout(tab.parseTimer); clearTimeout(tab.syncTimer); this.tabs.splice(at, 1);
+    if (!this.tabs.length) { this.activeId = null; if (placeholder) await this.newTab('md'); }
+    else if (this.activeId === id) { this.activeId = null; this.activate(this.tabs[Math.min(at, this.tabs.length - 1)].id); }
+    else this.tabUI.render();
+  }
+  async importDocument(doc, index = null, locked = false) {
+    if (this.tabs.some(t => t.id === doc.id)) return;
+    const tab = this.makeTab(doc); tab.locked = locked;
+    // Validate deserialization before replacing the destination's empty placeholder.
+    tab.editorState = this.source.createState(tab.content, tab.type, doc.snapshot?.editor);
+    if (this.tabs.length === 1 && !this.tabs[0].filePath && this.tabs[0].content === '' && !this.tabs[0].locked) {
+      const empty = this.tabs[0]; await this.api.closeDocument(empty.id); this.tabs = []; this.activeId = null;
     }
+    this.tabs.splice(index == null ? this.tabs.length : Math.max(0, Math.min(index, this.tabs.length)), 0, tab); this.activate(tab.id);
   }
-
-  handleTabSaveState(tab) {
-    tab.content = this.inputArea.value;
-    tab.scrollTop = this.inputArea.scrollTop;
-    tab.previewScrollTop = this.previewPane.scrollTop;
+  async handleRequest(request) {
+    try {
+      let value = true;
+      if (request.action === 'flush') await this.flush();
+      else if (request.action === 'prepare-close') {
+        this.locked = true; const current = this.current(); if (current) this.capture(current);
+        for (const tab of this.tabs) { this.lockTab(tab, true); clearTimeout(tab.syncTimer); clearTimeout(tab.parseTimer); }
+        for (const tab of this.tabs) await this.api.syncDocument({ id: tab.id, snapshot: this.snapshot(tab), activeId: this.activeId });
+      }
+      else if (request.action === 'lock') { this.locked = true; for (const id of request.payload.ids) { const t = this.tabs.find(t => t.id === id); if (t) this.lockTab(t, true); } }
+      else if (request.action === 'export') {
+        const tab = this.tabs.find(t => t.id === request.payload.id); if (!tab || tab.saving || tab.locked || this.source.view.composing) throw new Error('입력 또는 문서 작업이 진행 중입니다. 잠시 후 이동해 주세요.');
+        clearTimeout(tab.syncTimer); clearTimeout(tab.parseTimer); this.capture(tab); this.analyze(tab); value = this.snapshot(tab, true); this.lockTab(tab, true);
+      } else if (request.action === 'import') await this.importDocument(request.payload.document, request.payload.index, true);
+      else if (request.action === 'rollback') await this.remove(request.payload.id, request.payload.placeholder);
+      else throw new Error('UnknownWindowRequest');
+      this.api.respond({ requestId: request.requestId, value });
+    } catch (error) { this.api.respond({ requestId: request.requestId, error: String(error.message || error) }); }
   }
-
-  async handleTabConfirmDiscard(tab) {
-    // 탭을 저장할지 확인
-    return window.pbEditor.confirmDiscard();
-  }
-
-  handleTabExternalReload(tab) {
-    if (tab.id === this.tabManager.activeTabId) {
-      this.inputArea.value = tab.content;
-      this.updatePreview();
-      this.editorMetrics.update();
-      this.showStatusNotification('외부 변경사항이 자동 반영되었습니다.');
-    }
-  }
-
-  async handleTabPromptReload(tab, newContent) {
-    const fileName = tab.title || '문서';
-    const confirmed = confirm(
-      `[${fileName}] 파일이 외부(AI 에이전트 등)에서 수정되었습니다.\n디스크의 변경사항으로 새로고침하시겠습니까?\n(취소 시 현재 편집 중인 내용이 유지됩니다)`
-    );
-
-    if (confirmed) {
-      tab.content = newContent;
-      tab.isDirty = false;
-      this.tabManager.render();
-      if (tab.id === this.tabManager.activeTabId) {
-        this.inputArea.value = newContent;
-        this.updatePreview();
-        this.setDirty(false);
-        this.editorMetrics.update();
-      }
-      this.showStatusNotification('디스크 내용으로 새로고침되었습니다.');
-    }
-  }
-
-  showStatusNotification(message, duration = 3000) {
-    if (!this.statusMessageEl) return;
-    this.statusMessageEl.textContent = message;
-    if (this._statusTimer) clearTimeout(this._statusTimer);
-    this._statusTimer = setTimeout(() => {
-      if (this.statusMessageEl) this.statusMessageEl.textContent = '';
-      this._statusTimer = null;
-    }, duration);
-  }
-
-  bindEvents() {
-    // 마크다운 입력 시 프리뷰 및 메트릭 갱신
-    this.inputArea.addEventListener('input', () => {
-      const activeTab = this.tabManager.getActiveTab();
-      if (activeTab) {
-        activeTab.content = this.inputArea.value;
-      }
-      this.setDirty(true);
-      this.updatePreview();
-    });
-
-    this.inputArea.addEventListener('paste', () => {
-      setTimeout(() => {
-        const activeTab = this.tabManager.getActiveTab();
-        if (activeTab) {
-          activeTab.content = this.inputArea.value;
-        }
-        this.setDirty(true);
-        this.updatePreview();
-        this.editorMetrics.update();
-      }, 0);
-    });
-
-    // 저장 버튼 이벤트
-    this.btnSave.addEventListener('click', () => this.save());
-    this.btnSaveAs.addEventListener('click', () => this.save({ forceDialog: true }));
-
-    // 단축키 핸들러
-    document.addEventListener('keydown', (e) => {
-      const isCmdOrCtrl = e.ctrlKey || e.metaKey;
-
-      // 1. Ctrl + Tab / Ctrl + Shift + Tab (탭 순환)
-      if (isCmdOrCtrl && e.key === 'Tab') {
-        e.preventDefault();
-        this.tabManager.cycleTab(e.shiftKey ? -1 : 1);
-        return;
-      }
-
-      // 2. Ctrl + T (새 탭)
-      if (isCmdOrCtrl && String(e.key).toLowerCase() === 't') {
-        e.preventDefault();
-        this.tabManager.createTab({ activate: true });
-        return;
-      }
-
-      // 3. Ctrl + W (현재 탭 닫기)
-      if (isCmdOrCtrl && String(e.key).toLowerCase() === 'w') {
-        e.preventDefault();
-        this.tabManager.closeActiveTab();
-        return;
-      }
-
-      // 4. Ctrl + S (저장) / Ctrl + Shift + S (다른 이름으로 저장)
-      if (isCmdOrCtrl && String(e.key).toLowerCase() === 's') {
-        e.preventDefault();
-        this.save({ forceDialog: e.shiftKey });
-        return;
-      }
-    });
-
-    // OS에서 더블클릭 또는 second-instance로 전달된 파일 열기
-    window.pbEditor.onOpenFile(async (filePath) => {
-      await this.handleFileOpen(filePath);
-    });
-
-    // 외부 파일 실시간 수정 이벤트 수신 (3초 디바운스 적용됨)
-    window.pbEditor.onFileChanged(async (filePath) => {
+  bind() {
+    this.api.onRequest(request => this.handleRequest(request));
+    this.api.onRecover(doc => this.importDocument(doc).catch(error => this.error(error)));
+    this.api.onActivate(id => this.activate(id)); this.api.onRemove(id => this.remove(id).catch(error => this.error(error)));
+    this.api.onUnlock(data => { this.locked = false; for (const id of data.ids) { const tab = this.tabs.find(t => t.id === id); if (tab) { this.lockTab(tab, false); this.sync(tab).catch(error => this.error(error)); } } });
+    this.api.onSaved(data => { const tab = this.tabs.find(t => t.id === data.id); if (tab) { tab.saved = data.saved; tab.filePath = data.filePath; this.render(); } });
+    this.api.onError(message => this.notice(message)); this.api.onTabHint(hint => this.tabUI.hint(hint));
+    this.api.onFileChanged(async data => {
+      const tab = this.tabs.find(t => t.id === data.id); if (!tab || tab.locked || tab.saving) return;
       try {
-        const newContent = await this.fileService.readFile(filePath);
-        this.tabManager.handleExternalChange(filePath, newContent);
-      } catch (err) {
-        console.error('Failed to reload externally modified file:', filePath, err);
-      }
+        await this.sync(tab); const result = await this.api.reloadDocument({ id: tab.id });
+        if (result) { tab.content = tab.saved = result.content; tab.editorState = null; tab.snapshot = null; this.analyze(tab); if (this.current() === tab) this.activate(tab.id); this.notice('외부 변경사항이 반영되었습니다.'); }
+      } catch (error) { this.error(error); }
     });
-
-    // 메인 프로세스에서 창 닫기 전 저장을 요청한 경우
-    window.pbEditor.onRequestSave(async () => {
-      const saved = await this.save();
-      window.pbEditor.sendSaveResult({ saved });
+    $('btn-open').onclick = () => this.api.chooseFiles().catch(error => this.error(error));
+    $('btn-save').onclick = () => this.save(); $('btn-save-as').onclick = () => this.save(this.current(), true);
+    $('btn-format').onclick = () => { const tab = this.current(); if (!tab || tab.locked || tab.analysisPending || tab.error) return; try { this.source.replace(JsonService.formatSource(tab.content)); } catch (error) { this.error(error); } };
+    $('btn-undo').onclick = () => { if (!this.current()?.locked) this.source.undo(); };
+    $('btn-redo').onclick = () => { if (!this.current()?.locked) this.source.redo(); };
+    $('btn-find').onclick = () => { $('code-search-row').hidden = false; $('code-search').focus(); };
+    $('code-search-next').onclick = () => { if (!this.source.find($('code-search').value)) this.notice('검색 결과가 없습니다.'); };
+    $('code-search-close').onclick = () => { $('code-search-row').hidden = true; this.source.view.focus(); };
+    $('code-search').onkeydown = event => { if (event.key === 'Enter') $('code-search-next').click(); if (event.key === 'Escape') $('code-search-close').click(); };
+    document.addEventListener('keydown', event => {
+      if (event.key === 'Escape') this.tabUI.cancelDrag();
+      if (!(event.ctrlKey || event.metaKey)) return;
+      const key = event.key.toLowerCase();
+      if (key === 's') { event.preventDefault(); event.stopPropagation(); this.save(this.current(), event.shiftKey); }
+      else if (key === 't') { event.preventDefault(); this.newTab(this.current()?.type || 'md'); }
+      else if (key === 'w') { event.preventDefault(); this.close(this.activeId); }
+      else if (key === 'f') { event.preventDefault(); $('btn-find').click(); }
+      else if (key === 'tab') { event.preventDefault(); const at = this.tabs.findIndex(t => t.id === this.activeId); if (this.tabs.length) this.activate(this.tabs[(at + (event.shiftKey ? -1 : 1) + this.tabs.length) % this.tabs.length].id); }
+    }, true);
+    document.addEventListener('dragover', event => event.preventDefault());
+    document.addEventListener('drop', async event => { event.preventDefault(); if (this.locked) return; for (const file of [...(event.dataTransfer?.files || [])]) {
+      try { const result = await this.api.openDocument(this.api.getPathForFile(file)); if (result.document) await this.importDocument(result.document); } catch (error) { this.error(error); }
+    } });
+    let syncing = false;
+    const sourceScroll = this.source.view.scrollDOM, preview = $('preview-pane');
+    sourceScroll.addEventListener('scroll', () => { const tab = this.current(); if (!tab || tab.type !== 'md' || syncing) return; syncing = true; const range = sourceScroll.scrollHeight - sourceScroll.clientHeight; preview.scrollTop = range > 0 ? sourceScroll.scrollTop / range * (preview.scrollHeight - preview.clientHeight) : 0; requestAnimationFrame(() => { syncing = false; }); });
+    preview.addEventListener('scroll', () => { const tab = this.current(); if (!tab || tab.type !== 'md' || syncing) return; syncing = true; const range = preview.scrollHeight - preview.clientHeight; sourceScroll.scrollTop = range > 0 ? preview.scrollTop / range * (sourceScroll.scrollHeight - sourceScroll.clientHeight) : 0; requestAnimationFrame(() => { syncing = false; }); });
+    $('splitter').tabIndex = 0; $('splitter').setAttribute('role', 'separator'); $('splitter').setAttribute('aria-label', '패널 크기 조절');
+    $('splitter').addEventListener('keydown', event => {
+      if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(event.key)) return; event.preventDefault();
+      const a = $('editor-pane'), b = $('preview-pane'), axis = this.layout.layoutIndex >= 2 ? 'height' : 'width';
+      const first = a.getBoundingClientRect()[axis], second = b.getBoundingClientRect()[axis], ratio = first / (first + second) * 100;
+      const delta = (event.key === 'ArrowLeft' || event.key === 'ArrowUp' ? -5 : 5) * (this.layout.layoutIndex % 2 ? -1 : 1);
+      const next = Math.max(20, Math.min(80, ratio + delta)); a.style.flex = String(next); b.style.flex = String(100 - next);
+      $('splitter').setAttribute('aria-valuenow', String(Math.round(next)));
     });
-
-    // 드래그 앤 드롭 지원
-    document.addEventListener('dragover', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-    });
-
-    document.addEventListener('drop', async (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-
-      if (!e.dataTransfer.files || e.dataTransfer.files.length === 0) return;
-
-      const mdFiles = [...e.dataTransfer.files].filter((f) =>
-        f.name.toLowerCase().endsWith('.md') || f.name.toLowerCase().endsWith('.markdown')
-      );
-
-      if (mdFiles.length === 0) {
-        window.pbEditor.showMessage({
-          type: 'info',
-          message: '마크다운(.md, .markdown) 파일만 열 수 있습니다.'
-        });
-        return;
-      }
-
-      // 여러 개를 놓으면 순서대로 우측 탭에 추가
-      for (const file of mdFiles) {
-        const filePath = window.pbEditor.getPathForFile(file);
-        await this.handleFileOpen(filePath);
-      }
-    });
-  }
-
-  /**
-   * @param {{forceDialog?: boolean}} options forceDialog 면 항상 저장 대화상자를 띄운다
-   * @returns {Promise<boolean>} 저장 성공 여부
-   */
-  async save({ forceDialog = false } = {}) {
-    const activeTab = this.tabManager.getActiveTab();
-    if (!activeTab) return false;
-
-    activeTab.content = this.inputArea.value;
-
-    try {
-      const targetPath = forceDialog ? null : activeTab.filePath;
-      const result = await this.fileService.saveFile(activeTab.content, targetPath);
-
-      if (!result || !result.saved) {
-        return false;
-      }
-
-      activeTab.filePath = result.filePath;
-      activeTab.title = this.tabManager.extractFileName(result.filePath);
-      activeTab.isDirty = false;
-
-      this.currentFilePath = result.filePath;
-      this.markdownService.setCurrentFilePath(result.filePath);
-      this.updatePreview();
-      this.setDirty(false);
-      this.tabManager.render();
-      this.syncDocumentState();
-      this.showStatusNotification('저장되었습니다.');
-      return true;
-    } catch (err) {
-      console.error("저장 실패:", err);
-      window.pbEditor.showMessage({
-        type: 'error',
-        message: '저장에 실패했습니다.',
-        detail: String((err && err.message) || err)
-      });
-      return false;
-    }
-  }
-
-  async handleFileOpen(filePath) {
-    try {
-      const content = await this.fileService.readFile(filePath);
-      this.tabManager.openFile(filePath, content);
-      this.showStatusNotification(`[${this.tabManager.extractFileName(filePath)}] 파일을 열었습니다.`);
-    } catch (err) {
-      console.error("파일 열기 실패:", filePath, err);
-      window.pbEditor.showMessage({
-        type: 'error',
-        message: '파일을 열 수 없습니다.',
-        detail: String((err && err.message) || err)
-      });
-    }
   }
 }
-
 module.exports = App;

@@ -6,7 +6,8 @@
   "main": "index.js",
   "scripts": {
     "prebuild-icon": "node make-icon.js",
-    "build:js": "esbuild popup.js --bundle --minify --outfile=assets/bundle.min.js --platform=browser",
+    "build:js": "esbuild popup.js --bundle --minify --outfile=assets/bundle.min.js --platform=browser --main-fields=module,main",
+    "test": "node --test tests/*.test.js",
     "prestart": "npm run prebuild-icon && npm run build:js",
     "start": "electron .",
     "build:portable": "npm run prebuild-icon && npm run build:js && electron-builder --win portable && npx rimraf dist/win-unpacked dist/*.yaml dist/*.yml dist/.icon-ico",
@@ -26,6 +27,7 @@
     "files": [
       "index.js",
       "preload.js",
+      "src/main/**/*",
       "popup.html",
       "popup.css",
       "lib/**/*",
@@ -46,11 +48,26 @@
     },
     "fileAssociations": [
       {
+        "ext": "json",
+        "name": "JSON Document",
+        "description": "JSON Document",
+        "icon": "assets/icon.ico"
+      },
+      {
         "ext": "md",
         "name": "Markdown Document",
         "description": "Markdown Document",
         "icon": "assets/icon.ico"
       }
     ]
+  },
+  "dependencies": {
+    "@codemirror/commands": "6.11.1",
+    "@codemirror/lang-json": "6.0.2",
+    "@codemirror/language": "6.12.4",
+    "@codemirror/state": "6.7.6",
+    "@codemirror/view": "6.43.13",
+    "@lezer/highlight": "1.2.5",
+    "jsonc-parser": "3.3.1"
   }
 }
